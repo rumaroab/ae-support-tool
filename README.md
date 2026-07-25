@@ -40,8 +40,15 @@ ollama pull gemma4:12b
 Any model can be used I used  `gemma4:12b` that is about a 7.6 GB download, and I have the resources to run it seamlessly from my local setup. A different locally installed model can be selected with environment variables:
 
 ```powershell
+# Windows
 $env:OLLAMA_MODEL = "gemma4:12b"
 $env:OLLAMA_HOST = "http://localhost:11434"
+```
+
+```bash
+# macOS/Linux
+export OLLAMA_MODEL="gemma4:12b"
+export OLLAMA_HOST="http://localhost:11434"
 ```
 
 `OLLAMA_HOST` must use `http://` and either `localhost` or `127.0.0.1`. Before generation, the app checks that Ollama is reachable and that the configured model is installed. Briefs are generated on demand and cached in Streamlit session state.
