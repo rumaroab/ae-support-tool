@@ -10,6 +10,19 @@ from src.scoring import OPERATING_HORIZON_DAYS, score_accounts
 
 st.set_page_config(page_title="AE Support Tool", layout="wide")
 
+PROTECTION_PROXY_HELP = (
+    "Directional prioritization estimate based on current revenue, risk signals, "
+    "and renewal timing. It is not expected loss or a forecast."
+)
+GROWTH_PROXY_HELP = (
+    "Directional estimate based on peer seat headroom, adoption readiness, and "
+    "renewal timing. It is not committed pipeline or a forecast."
+)
+ACTION_PROXY_HELP = (
+    "The larger of the account's protection and growth priority proxies. "
+    "It is not expected financial impact."
+)
+
 
 @st.cache_data
 def load_scored_accounts():
@@ -72,8 +85,16 @@ def render_today(df):
 
     pulse = daily_pulse(filtered)
     p1, p2, p3, p4 = st.columns(4)
-    p1.metric("Protection priority proxy", f"${pulse['protect_value']:,.0f}")
-    p2.metric("Growth priority proxy", f"${pulse['growth_value']:,.0f}")
+    p1.metric(
+        "Protection priority proxy",
+        f"${pulse['protect_value']:,.0f}",
+        help=PROTECTION_PROXY_HELP,
+    )
+    p2.metric(
+        "Growth priority proxy",
+        f"${pulse['growth_value']:,.0f}",
+        help=GROWTH_PROXY_HELP,
+    )
     p3.metric("Accounts needing contact", pulse["needs_contact"])
     p4.metric("Contact history unknown", pulse["contact_unknown"])
 
@@ -86,6 +107,9 @@ def render_today(df):
         action = row["priority_action"]
         value_column = "protect_value" if action == "Protect" else "growth_value"
         value_label = "protection proxy" if action == "Protect" else "growth proxy"
+        proxy_help = (
+            PROTECTION_PROXY_HELP if action == "Protect" else GROWTH_PROXY_HELP
+        )
         if row["contact_unknown"]:
             contact_badge = " | Contact unknown"
         elif row["needs_contact"]:
@@ -99,6 +123,7 @@ def render_today(df):
         with st.expander(title):
             st.markdown(f"**Why:** {row['priority_reasons']}")
             st.markdown(f"**Next action:** {recommended_action(row)}")
+            st.caption(proxy_help)
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Current revenue", f"${row['current_revenue']:,.0f}")
             m2.metric("Seat utilization", f"{row['seat_utilization']:.0%}")
@@ -135,7 +160,29 @@ def render_today(df):
                 "days_to_next_renewal": "days_to_renewal",
             }
         )
-        st.dataframe(display.reset_index(drop=True), width="stretch", hide_index=True)
+        st.dataframe(
+            display.reset_index(drop=True),
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "priority_proxy": st.column_config.NumberColumn(
+                    "Priority proxy", help=ACTION_PROXY_HELP, format="$%.0f"
+                ),
+                "protection_priority_proxy": st.column_config.NumberColumn(
+                    "Protection priority proxy",
+                    help=PROTECTION_PROXY_HELP,
+                    format="$%.0f",
+                ),
+                "growth_priority_proxy": st.column_config.NumberColumn(
+                    "Growth priority proxy",
+                    help=GROWTH_PROXY_HELP,
+                    format="$%.0f",
+                ),
+                "current_revenue": st.column_config.NumberColumn(
+                    "Current revenue", format="$%.0f"
+                ),
+            },
+        )
 
 
 def render_meeting_brief(df):
@@ -159,7 +206,9 @@ def render_meeting_brief(df):
     )
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Suggested scoring motion", row["priority_action"])
-    m2.metric("Action value", f"${dominant_value:,.0f}")
+    m2.metric(
+        "Action value", f"${dominant_value:,.0f}", help=ACTION_PROXY_HELP
+    )
     m3.metric("Current revenue", f"${row['current_revenue']:,.0f}")
     m4.metric("Days to renewal", int(row["days_to_next_renewal"]))
     st.caption("Action value is a prioritization proxy, not a financial forecast.")

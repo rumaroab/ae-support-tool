@@ -9,16 +9,17 @@ The account ranking is deterministic and outcome-free. A local Ollama model is u
 
 ## Quick start
 
-The repository includes the synthetic `account_data.csv` used by the app. After cloning the repository:
+After cloning the repository:
+**Add the csv file with the name `account_data.csv` to the root of the repository**
 
 ```bash
 python -m venv .venv
 
-# Windows
-.venv\Scripts\activate
-
 # macOS/Linux
 source .venv/bin/activate
+
+# Windows
+.venv\Scripts\activate
 
 pip install -r requirements.txt
 streamlit run app.py
@@ -26,7 +27,6 @@ streamlit run app.py
 
 Open the URL Streamlit prints, usually <http://localhost:8501>.
 
-**Add the csv file with the name `account_data.csv` to the root of the repo**
 
 ## Ollama
 
@@ -37,7 +37,7 @@ ollama serve
 ollama pull gemma4:12b
 ```
 
-`gemma4:12b` is about a 7.6 GB download. A different locally installed model can be selected with environment variables:
+Any model can be used I used  `gemma4:12b` that is about a 7.6 GB download, and I have the resources to run it seamlessly from my local setup. A different locally installed model can be selected with environment variables:
 
 ```powershell
 $env:OLLAMA_MODEL = "gemma4:12b"
@@ -58,7 +58,6 @@ The UI calls `process_data()` once and then `score_accounts()`. The future outco
 
 ```text
 app.py                 # two-tab Streamlit UI
-account_data.csv       # supplied synthetic account data
 eda.ipynb              # outcome-separated retrospective review
 src/data.py            # load, clean, and derive runtime features
 src/scoring.py         # deterministic action-value heuristic
@@ -112,26 +111,44 @@ The prompt uses Role, Task, Result format, Guardrails, and Facts sections. It re
 
 ## Synthetic retrospective consistency
 
-`eda.ipynb` loads `revenue_end_of_quarter` separately and evaluates the fixed heuristic. Nothing is calibrated against this outcome.
+`eda.ipynb` loads `revenue_end_of_quarter` separately and evaluates the fixed heuristic on the same 244 accounts the product can surface: renewals within the 90-day operating horizon. Nothing is calibrated against this outcome.
 
 Top-50 review within each suggested action:
 
 | Action | Assigned by heuristic | Evaluated top N | Outcome precision | Outcome recall | Outcome dollars captured |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Protect | 903 | 50 | 16.0% | 7.3% | 58.4% of loss dollars |
-| Grow | 97 | 50 | 74.0% | 12.4% | 32.4% of growth dollars |
+| Protect | 229 | 50 | 16.0% | 19.5% | 86.5% of loss dollars |
+| Grow | 15 | 15 | 66.7% | 16.7% | 30.3% of growth dollars |
 
-Absolute revenue-change capture across review budgets:
+Absolute revenue-change capture across operational review budgets:
 
-| Top K | Priority value | Current revenue | Renewal date | Random mean |
+| Top K | Full priority | Current revenue | Renewal date | Random mean |
 | ---: | ---: | ---: | ---: | ---: |
-| 10 | 6.4% | 2.4% | 1.3% | 1.0% |
-| 25 | 27.3% | 18.7% | 3.3% | 2.6% |
-| 50 | 41.3% | 34.0% | 4.3% | 5.0% |
-| 100 | 55.1% | 64.9% | 11.3% | 10.1% |
-| 200 | 86.2% | 87.2% | 29.2% | 20.3% |
+| 10 | 21.0% | 30.2% | 4.4% | 4.2% |
+| 25 | 68.1% | 69.1% | 10.9% | 10.8% |
+| 50 | 83.3% | 85.1% | 16.1% | 20.5% |
+| 100 | 94.9% | 95.6% | 37.1% | 41.0% |
+| 200 | 99.3% | 99.2% | 95.7% | 82.0% |
 
-The notebook also reports bootstrap 95% intervals and repeated-random ranges. These figures show retrospective consistency on one synthetic portfolio only. They are not evidence of predictive performance or production calibration.
+A progressive ablation shows what each layer adds to the ranking:
+
+| Top K | Current revenue | Revenue x urgency | Protection only | Full priority |
+| ---: | ---: | ---: | ---: | ---: |
+| 10 | 30.2% | 37.1% | 29.2% | 21.0% |
+| 25 | 69.1% | 63.8% | 68.0% | 68.1% |
+| 50 | 85.1% | 85.1% | 83.3% | 83.3% |
+
+Leave-one-protection-signal-out results show that component effects depend on the review budget:
+
+| Top K | Full priority | No idle seats | No AI adoption | No support pressure | No contact gap |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 10 | 21.0% | 21.0% | 21.0% | 21.0% | 37.5% |
+| 25 | 68.1% | 65.0% | 61.8% | 65.0% | 68.1% |
+| 50 | 83.3% | 79.6% | 83.3% | 83.3% | 83.3% |
+
+Current revenue is a competitive baseline on this synthetic cohort, and revenue times urgency performs best at the top-10 budget. Revenue alone remains operationally naive: it cannot distinguish Protect from Grow or explain which account signal needs attention. The heuristic is retained for those actionable motions and explanations, not because this retrospective proves better generalization. Better performance on future data remains a hypothesis that requires historical snapshots and time-based validation.
+
+The notebook also reports bootstrap 95% intervals and repeated-random ranges. These figures describe retrospective consistency on one synthetic cohort only. They are not evidence of predictive performance or production calibration.
 
 ## Limitations
 
